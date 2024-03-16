@@ -1,60 +1,55 @@
-from fastapi import FastAPI, HTTPException, Depends
-from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+#all routers
 from routers.messageRouter import message_router
-from db_connection.mongodb import get_mongo_db
-import asyncio
-
-
+from routers.taskRouter import task_router
+from routers.scheduleRouter import schedule_router
+from routers.updateRouter import update_router
+from routers.peopleRouter import people_router
+from routers.inventoryRouter import inventory_router
+#pymongo - for db connection
+from db_connection import db
 from contextlib import asynccontextmanager
-from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 import os
-
-#pymongo
-from db_connection import db
-import uvicorn
 
 load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    mongo_uri = os.environ.get("MONGO_URI")
-    db.connect_to_database(path=mongo_uri)
-    print("connected to db in main.py!")
+    try: 
+        mongo_uri = os.environ.get("MONGO_URI")
+        db.connect_to_database(path=mongo_uri)
+        print("connected to db in main.py!")
 
-    yield
-    db.client.close()
-    # client.close()
+        yield
+        db.close_database_connection()
+        # client.close()
+    except Exception as e:
+        print(e)
 
 app = FastAPI(lifespan= lifespan)
+origins = [
+    "*"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+	
+)
 
 
+@app.get("/")
+async def landing():
+    return {"message": "success"}
+#routing
+app.include_router(message_router, prefix="/messages")
+app.include_router(task_router, prefix="/tasks")
+app.include_router(schedule_router, prefix="/schedules")
+app.include_router(update_router, prefix="/update")
+app.include_router(people_router, prefix="/people")
+app.include_router(inventory_router, prefix="/inventory")
 
-#changes 
-# from motor.motor_asyncio import AsyncIOMotorClient
-# import os
-# mongo_uri = os.environ.get("MONGO_URI")
-# client = AsyncIOMotorClient(mongo_uri)
-# db = client["basanti_backend"]
-# async def get_database():
-#     try:
-#         yield db
-#     finally:
-#         client.close()
-# #changes
-
-
-
-
-# @app.post("/api/v1/initialise/{institute}")
-# async def initialise_root(institute: str, db=Depends(get_mongo_db)):
-#     root_data = {"Name" : institute, "People": {}, "Events": {}, "Inventory": {}}
-#     root_collection = db.get_collection("root")
-#     result = await root_collection.insert_one(root_data)
-
-#     if result.inserted_id:
-#         return {"message": "User created successfully", "user_id": str(result.inserted_id)}
-#     else:
-#         raise HTTPException(status_code=500, detail="Failed to create user")
-app.include_router(message_router)
-
-
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload="true")

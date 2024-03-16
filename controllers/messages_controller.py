@@ -1,27 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from db_connection.mongodb import get_mongo_db
 from schema.messageSchema import MessageSchema
 from bson.json_util import loads, dumps
+from bson.objectid import ObjectId
 import json
-
+from fastapi import HTTPException
 from db_connection import db
-
-# from db_connection import db
+import fastapi
 
 from typing import List
 
-
-# @person_router.post("/api/v1/{institute}/people")
-# async def add_user(user, institute: str, db=Depends(get_mongo_db) ):
-#     root_collection = db.get_collection("root")
-#     result = await root_collection.find_one(institute)
-
-#     print(result)
-
-#     if result.inserted_id:
-#         return {"message": "done"}
-#     else:
-#         raise HTTPException(status_code=500, detail="Failed to create user")
 
 class MessageController:
     # async def get_all_messages(db=Depends(get_mongo_db)) -> List[MessageSchema]:
@@ -37,24 +23,46 @@ class MessageController:
     async def get_all_messages() -> List[MessageSchema]:
         try:
             #print(db)
-            mydb = db.client["basanti_backend"]
-            collection = mydb["messages"]
-            query = collection.find({})
+            # mydb = db.client["basanti_backend"]
+            # collection = mydb["messages"]
+            query = db.messages.find({})
+            res = json.loads(dumps(query))
             # print(query)
-            return {"message": "successs",
-                    "data": json.loads(dumps(query))}
+            return {"status": "successs",
+                    "data": res}
             
+        except Exception as e:
+            print(e)
+
+    async def get_message(message_id: str) -> MessageSchema:
+        try:
+            idObject = ObjectId(message_id)
+            query = db.messages.find({"_id": idObject})
+            res = json.loads(dumps(query))
+            if(len(res)):
+                return fastapi.responses.JSONResponse(status_code=201, content={"status":"success", "data":res})
+            else:
+                return fastapi.responses.JSONResponse(status_code=404, content={"status":"fail"})
         except Exception as e:
             print(e)
     
     async def add_message(req):
         try:
-            mydb = db.client["basanti_backend"]
-            collection = mydb["messages"]
-            print(req)
-            query = collection.insert_one(req)
-            print("reached")
-            return {"message": "successs",
+            query = db.messages.insert_one(req)
+            id = str(query.inserted_id)
+            # print("reached")
+            return {"status": "successs",
+                    "id": id
+                    }
+        except Exception as e:
+            print(e)
+    
+    async def delete_message(message_id: str) -> MessageSchema:
+        try:
+            
+            idObject = ObjectId(message_id)
+            query = db.messages.delete_one({"_id": idObject})
+            return {"status": "success"
                     }
         except Exception as e:
             print(e)
